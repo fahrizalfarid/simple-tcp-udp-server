@@ -36,8 +36,6 @@ func (c *client) runUdpClient(wg *sync.WaitGroup) {
 		log.Fatal(err)
 	}
 
-	defer dial.Close()
-
 	// read response from server if any
 	go func() {
 		for {
@@ -76,7 +74,10 @@ func (c *client) runTcpClient(wg *sync.WaitGroup) {
 		log.Fatal(err)
 	}
 
-	defer dial.Close()
+	err = dial.SetKeepAlive(true)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// read response from server if any
 	go func() {
@@ -108,12 +109,12 @@ func NewClient(totalMsg int, delay time.Duration) clientInterface {
 }
 
 func main() {
-	runtime.GOMAXPROCS(12)
+	runtime.GOMAXPROCS(2)
 
 	var wg sync.WaitGroup
 	now := time.Now()
 
-	client := NewClient(5, 1000)
+	client := NewClient(1, 1000)
 
 	// simulate there is 1000 client's connected at same time
 	for i := 0; i < 1000; i++ {

@@ -12,7 +12,7 @@ func main() {
 
 	go func() {
 		tcpConn, err := tcp.New().Server()
-		tcp.New().Handler(*tcpConn)
+		tcp.New().Handler(tcpConn)
 
 		errsChan <- err
 	}()

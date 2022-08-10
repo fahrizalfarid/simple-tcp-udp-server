@@ -16,51 +16,66 @@ type server struct {
 }
 
 type tcpServerInterface interface {
-	Server() (*net.Listener, error)
-	Handler(net.Listener)
+	Server() (*net.TCPListener, error)
+	Handler(*net.TCPListener)
 }
 
-func (s *server) Handler(listener net.Listener) {
+func (s *server) handler(conn *net.TCPConn) {
+	defer conn.Close()
+
 	for {
 		var buff = s.msgBuffer
-		conn, err := listener.Accept()
+		n, err := conn.Read(buff)
 
-		if err != nil {
-			continue
+		if err == io.EOF {
+			return
 		}
 
-		go func() {
-			for {
-				n, err := conn.Read(buff)
+		if err != nil {
+			return
+		}
 
-				if err == io.EOF {
-					continue
-				}
-
-				if err != nil {
-					continue
-				}
-
-				// do something here, such as insert data to db
-				s.mutex.Lock()
-				msg := fmt.Sprintf("tcp message from %v, msg : %v", conn.RemoteAddr(), string(buff[:n]))
-				fmt.Println(msg)
-				s.mutex.Unlock()
-			}
-		}()
-		// conn.Close()
+		// do something here, such as insert data to db
+		s.mutex.Lock()
+		msg := fmt.Sprintf("tcp message from %v, msg : %v", conn.RemoteAddr(), string(buff[:n]))
+		fmt.Println(msg)
+		s.mutex.Unlock()
 	}
 }
 
-func (s *server) Server() (*net.Listener, error) {
-	listen, err := net.Listen(s.network, s.addrTcp)
+func (s *server) Handler(listener *net.TCPListener) {
+	for {
+		conn, err := listener.AcceptTCP()
+
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		err = conn.SetKeepAlive(true)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		go s.handler(conn)
+
+	}
+}
+
+func (s *server) Server() (*net.TCPListener, error) {
+	str, err := net.ResolveTCPAddr(s.network, s.addrTcp)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	listen, err := net.ListenTCP(s.network, str)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Println("TCP Listening", listen.Addr().String())
-	return &listen, err
+	return listen, err
 }
 
 func New() tcpServerInterface {
