@@ -6,12 +6,13 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type server struct {
 	addrTcp   string
 	msgBuffer []byte
-	mutex     sync.RWMutex
+	mutex     sync.Mutex
 	network   string
 }
 
@@ -57,6 +58,11 @@ func (s *server) Handler(listener *net.TCPListener) {
 			log.Fatal(err)
 		}
 
+		err = conn.SetKeepAlivePeriod(30 * time.Second)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		go s.handler(conn)
 
 	}
@@ -82,7 +88,7 @@ func New() tcpServerInterface {
 	return &server{
 		addrTcp:   ":1801",
 		network:   "tcp",
-		mutex:     sync.RWMutex{},
-		msgBuffer: make([]byte, 1024),
+		mutex:     sync.Mutex{},
+		msgBuffer: make([]byte, 512),
 	}
 }

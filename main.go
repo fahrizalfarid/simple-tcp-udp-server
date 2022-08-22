@@ -2,17 +2,19 @@ package main
 
 import (
 	"log"
+	"runtime"
 
 	tcp "github.com/fahrizalfarid/simple-tcp-udp-server/server/tcp"
 	udp "github.com/fahrizalfarid/simple-tcp-udp-server/server/udp"
 )
 
 func main() {
+	runtime.GOMAXPROCS(2)
 	errsChan := make(chan error)
 
 	go func() {
 		tcpConn, err := tcp.New().Server()
-		tcp.New().Handler(tcpConn)
+		go tcp.New().Handler(tcpConn)
 
 		errsChan <- err
 	}()

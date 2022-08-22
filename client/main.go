@@ -12,6 +12,7 @@ import (
 type client struct {
 	totalMsg int
 	delay    time.Duration
+	mutex    sync.RWMutex
 }
 
 type clientInterface interface {
@@ -50,9 +51,11 @@ func (c *client) runUdpClient(wg *sync.WaitGroup) {
 	}()
 
 	for i := 0; i < c.totalMsg; i++ {
+		c.mutex.RLock()
 		msg := fmt.Sprintf("Hy from udp client %v", i)
 		dial.Write([]byte(msg))
 		time.Sleep(c.delay * time.Millisecond)
+		c.mutex.RUnlock()
 	}
 
 	_ = dial.Close()
@@ -79,6 +82,8 @@ func (c *client) runTcpClient(wg *sync.WaitGroup) {
 		log.Fatal(err)
 	}
 
+	_ = dial.SetKeepAlivePeriod(30 * time.Second)
+
 	// read response from server if any
 	go func() {
 		for {
@@ -93,9 +98,11 @@ func (c *client) runTcpClient(wg *sync.WaitGroup) {
 	}()
 
 	for i := 0; i < c.totalMsg; i++ {
+		c.mutex.RLock()
 		msg := fmt.Sprintf("Hy from tcp client %v", i)
 		dial.Write([]byte(msg))
 		time.Sleep(c.delay * time.Millisecond)
+		c.mutex.RUnlock()
 	}
 
 	_ = dial.Close()
@@ -105,22 +112,22 @@ func NewClient(totalMsg int, delay time.Duration) clientInterface {
 	return &client{
 		totalMsg: totalMsg,
 		delay:    delay,
+		mutex:    sync.RWMutex{},
 	}
 }
 
 func main() {
-	runtime.GOMAXPROCS(2)
+	runtime.GOMAXPROCS(4)
 
 	var wg sync.WaitGroup
 	now := time.Now()
 
-	client := NewClient(1, 1000)
+	client := NewClient(10, 2)
 
 	// simulate there is 1000 client's connected at same time
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 
 		// if you're looking for speed use udp instead
-		// tcp will eat a lot of memory and cpu
 		wg.Add(1)
 		go client.runTcpClient(&wg)
 
